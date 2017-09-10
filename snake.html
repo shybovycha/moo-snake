@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Snake</title>
+</head>
+<body>
+    <script>
+    Array.prototype.sample = function () {
+        return this[parseInt(Math.random() * parseInt(Math.pow(10, Math.ceil(Math.log10(this.length))))) % this.length];
+    };
+
+    Array.prototype.last = function () {
+        return this[this.length - 1];
+    };
+
+    class Point {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        equals(other) {
+            return ((this.x === other.x) && (this.y === other.y));
+        }
+    }
+
+    class Snake {
+        constructor(points, direction, maxX, maxY) {
+            this.points = points;
+            this.direction = direction;
+            this.maxX = maxX;
+            this.maxY = maxY;
+        }
+
+        advance() {
+            this.points.shift();
+            this.points.push(this.nextPoint());
+        }
+
+        nextPoint() {
+            let { x, y } = this.points.last();
+
+            if (this.direction === 'up') {
+                y--;
+            } else if (this.direction === 'right') {
+                x++;
+            } else if (this.direction === 'down') {
+                y++;
+            } else if (this.direction === 'left') {
+                x--;
+            }
+
+            if (x < 0) {
+                x = this.maxX;
+            } else if (x > this.maxX) {
+                x = 0;
+            }
+
+            if (y < 0) {
+                y = this.maxY;
+            } else if (y > this.maxY) {
+                y = 0;
+            }
+
+            return new Point(x, y);
+        }
+
+        moveUp() {
+            this.direction = 'up';
+        }
+
+        moveRight() {
+            this.direction = 'right';
+        }
+
+        moveDown() {
+            this.direction = 'down';
+        }
+
+        moveLeft() {
+            this.direction = 'left';
+        }
+    }
+
+    class Game {
+        constructor(rows, cols) {
+            this.rows = rows;
+            this.cols = cols;
+            this.score = 0;
+            this.snake = this._createSnake();
+            this.food = this._generateFood();
+        }
+
+        isGameOver() {
+            const p = this.snake.nextPoint();
+            return this.snake.points.find(e => e.equals(p));
+        }
+
+        updateState() {
+            const nextSnakePoint = this.snake.nextPoint();
+
+            if (this.food.equals(nextSnakePoint)) {
+                this.score++;
+                this.snake.points.push(nextSnakePoint);
+                this.food = this._generateFood();
+                this.snake.advance();
+            } else {
+                this.snake.advance();
+            }
+        }
+
+        _createSnake() {
+            const y = this.rows / 2;
+            const x = (this.cols / 2) - 3;
+
+            const points = [
+                new Point(x, y),
+                new Point(x + 1, y),
+                new Point(x + 2, y)
+            ];
+
+            const direction = 'right';
+
+            return new Snake(points, direction, this.cols - 1, this.rows - 1);
+        }
+
+        _generateFood() {
+            const allPoints = [];
+
+            for (let y = 0; y < this.rows; y++) {
+                for (let x = 0; x < this.cols; x++) {
+                    const p = new Point(x, y);
+
+                    if (this.snake.points.find(e => e.equals(p))) {
+                        continue;
+                    }
+
+                    allPoints.push(p);
+                }
+            }
+
+            return allPoints.sample();
+        }
+    }
+
+    class Renderer {
+        constructor(game, cellSize) {
+            this.game = game;
+            this.cellSize = cellSize;
+        }
+
+        init() {
+            this._createCanvas();
+        }
+
+        updateState() {
+            this._render();
+        }
+
+        _createCanvas() {
+            this.canvasWidth = (this.game.cols + 3 + 4) * this.cellSize;
+            this.canvasHeight = (this.game.rows) * this.cellSize;
+
+            this.canvas = document.createElement('canvas');
+            this.canvas.setAttribute('id', 'game');
+            this.canvas.setAttribute('width', this.canvasWidth.toString());
+            this.canvas.setAttribute('height', this.canvasHeight.toString());
+
+            document.body.appendChild(this.canvas);
+
+            this.ctx = this.canvas.getContext('2d');
+        }
+
+        _clearCanvas() {
+            this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        }
+
+        _drawRectangle(x, y, w, h, color) {
+            this.ctx.fillStyle = 'white';
+            this.ctx.fillRect(x, y, w, h);
+
+            const borderSize = 2;
+
+            this.ctx.fillStyle = 'black';
+            this.ctx.fillRect(x + borderSize, y + borderSize, w - borderSize, h - borderSize);
+        }
+
+        _drawText(x, y, text) {
+            this.ctx.font = '18px "Courier New"';
+            this.ctx.fillText(text, x, y);
+        }
+
+        _render() {
+            this._clearCanvas();
+
+            for (let i = 0; i < this.game.snake.points.length; i++) {
+                const { x, y } = this.game.snake.points[i];
+                this._drawRectangle(x * this.cellSize, y * this.cellSize, this.cellSize, this.cellSize);
+            }
+
+            this._drawRectangle(this.game.food.x * this.cellSize, this.game.food.y * this.cellSize, this.cellSize, this.cellSize);
+
+            this._drawText((this.game.cols + 3.5) * this.cellSize, ((this.game.rows / 2) - 1) * this.cellSize, 'SCORE');
+            this._drawText((this.game.cols + 3.5) * this.cellSize, (this.game.rows / 2) * this.cellSize, this.game.score.toString());
+        }
+
+        renderGameOverScreen() {
+            this._clearCanvas();
+
+            this._drawText((this.game.cols / 2) * this.cellSize, ((this.game.rows / 2) - 1) * this.cellSize, 'GAME OVER');
+            this._drawText((this.game.cols / 2) * this.cellSize, (this.game.rows / 2) * this.cellSize, `SCORE: ${this.game.score}`);
+        }
+    }
+
+    (function () {
+        const CELL_SIZE = 20;
+        const FIELD_ROWS = 10, FIELD_COLS = 20;
+
+        const game = new Game(FIELD_ROWS, FIELD_COLS);
+        const renderer = new Renderer(game, CELL_SIZE);
+
+        renderer.init();
+
+        const keyHandler = function (evt) {
+            if (evt.keyCode == 37) { // left
+                game.snake.moveLeft();
+            } else if (evt.keyCode == 39) { // right
+                game.snake.moveRight();
+            } else if (evt.keyCode == 40) { // down
+                game.snake.moveDown();
+            } else if (evt.keyCode == 38) { // up
+                game.snake.moveUp();
+            }
+
+            renderer.updateState();
+        };
+
+        window.addEventListener('keydown', keyHandler);
+
+        const gameLoopIntervalId = setInterval(() => {
+            if (game.isGameOver()) {
+                clearInterval(gameLoopIntervalId);
+                window.removeEventListener('keydown', keyHandler);
+
+                renderer.renderGameOverScreen();
+                return;
+            }
+
+            game.updateState();
+            renderer.updateState();
+        }, 500);
+    })();
+    </script>
+</body>
+</html>
